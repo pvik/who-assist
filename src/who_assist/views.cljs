@@ -1,6 +1,6 @@
 (ns who-assist.views
   (:require [reagent.core :as r]
-            ;; [dommy.core :as dommy]
+            [dommy.core :as dom]
             ))
 
 (defonce substances
@@ -50,7 +50,11 @@
    :7 {:question "Have you ever tried and failed to control, cut down or stop using substances?"
        :options {"Never" 0
                  "Yes, in past 3 months" 6
-                 "Yes, but not in past 3 months" 3}}})
+                 "Yes, but not in past 3 months" 3}}
+   :8 {:question "Have you ever used any drug by injection?"
+       :options {"Never" 0
+                 "Yes, in past 3 months" 0
+                 "Yes, but not in past 3 months" 0}}   })
 
 (def q-score (r/atom {}))
 (def visible-substance (r/atom #{}))
@@ -70,14 +74,16 @@
     (reset! lvl2 true)))
 
 (defn question [n]
-  (let [q1?     (= n 1)
-        q2?     (= n 2)
+  (let [q1?       (= n 1)
+        q2?       (= n 2)
+        q8?       (= n 8)
+        lvl2-q?   (and (> n 2) (< n 6))
         scorable? (and (> n 1) (< n 8))
-        q-kw    (keyword (str n))
-        q-map   (q-kw questions)
-        q       (:question q-map)
-        q-opts  (:options q-map)
-        q-notes (:notes q-map)]
+        q-kw      (keyword (str n))
+        q-map     (q-kw questions)
+        q         (:question q-map)
+        q-opts    (:options q-map)
+        q-notes   (:notes q-map)]
     (fn []
       [:div.col {:id (str "q" n)}
        [:div.panel
@@ -88,18 +94,21 @@
          (when q-notes
            [:p [:i q-notes]])
          (doall
-          (for [ss    (sort-by first substances)
+          (for [ss    (if q8?
+                        {:z ""}
+                        (sort-by first substances))
                 :let  [ss-name (second ss)
                        ss-kw (first ss)]
                 :when (or q1?
-                          (contains? @visible-substance ss-kw))]
+                          q8?
+                          (and (not lvl2-q?) (contains? @visible-substance ss-kw))
+                          (and lvl2-q? (contains? @lvl2-substances ss-kw)))]
             ^{:key (str "q" n (name ss-kw))}         
             [:div.form-control-group
              [:div.form-control.grow-3x
-              [:label (str (name ss-kw) ". " ss-name)]
+              [:label (str (if q8? "" (str (name ss-kw) ". ")) ss-name)]
               (when (and (= n 1) (= ss-name "Other"))
                 [:input {:id "other" :type "text" :placeholder "Other"}])]
-             
              (doall
               (for [opt-kv q-opts                
                     :let   [opt (first opt-kv)
@@ -166,26 +175,45 @@
            [:td (str scr)]
            [:td [intervention-level subst scr]]]))]]]))
 
+(defn save-pdf [_]
+  (let [interviewer-id (.-value (dom/sel1 :#interviewer_id))
+        clinic         (.-value (dom/sel1 :#clinic))
+        patient-id     (.-value (dom/sel1 :#patient_id))
+        ;; _              (println (.getTime (js/Date.)))
+        date           (str (.getDate (js/Date.))
+                            "_" (.getMonth (js/Date.))
+                            "_" (.getFullYear (js/Date.)))
+        name           (str "assist_" interviewer-id "_" clinic "_" patient-id "_" date ".pdf")
+        body-element   (.getElementById js/document "app-body")]
+    (.save 
+     (.from 
+      (.set (new js/html2pdf) 
+            (clj->js 
+             {"margin" 1 
+              "filename" name
+              "jsPDF" {"format" "a4"
+                       "orientation" "landscape"}})) 
+      body-element))
+    ))
+
 (defn main-html []
   [:div
    ;; [:p (str @q-score)]
    [question 1]
    (when @lvl1
-     [question 2])
-   (when @lvl2
-     [question 3])
-   (when @lvl2
-     [question 4])
-   (when @lvl2
-     [question 5])
-   (when @lvl1
-     [question 6])
-   (when @lvl1
-     [question 7])
-   (when @lvl1
-     [score-table])
-   (when @lvl1
-     [:div.col
-      [:button.button-primary
-       {:on-click #(js/alert "Feature not implemented yet")}
-       "Save as PDF"]])])
+     [:div
+      [question 2]
+      (when @lvl2
+        [:div
+         [question 3]
+         [question 4]
+         [question 5]
+         ])
+      [question 6]
+      [question 7]
+      [question 8]
+      [score-table]
+      [:div.col
+       [:button.button-primary
+        {:on-click save-pdf}
+        "Save as PDF"]]])])

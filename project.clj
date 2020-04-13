@@ -13,10 +13,11 @@
                  [reagent "0.10.0"]
                  [cljs-http "0.1.46"]
                  [com.cemerick/url "0.1.1"]
-                 [alandipert/storage-atom "2.0.1"]
+                 ;; [alandipert/storage-atom "2.0.1"]
                  [prismatic/dommy "1.1.0"]
                  [hickory "0.7.1"]
-                 [com.andrewmcveigh/cljs-time "0.5.2"]]
+                 ;; [com.andrewmcveigh/cljs-time "0.5.2"]
+                 [cljsjs/pdfmake "0.1.26-0"]]
 
   :plugins [[lein-figwheel "0.5.19"]
             [lein-cljsbuild "1.1.8" :exclusions [[org.clojure/clojure]]]]
