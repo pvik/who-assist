@@ -1,6 +1,7 @@
 (ns who-assist.views
   (:require [reagent.core :as r]
-            [dommy.core :as dommy]))
+            ;; [dommy.core :as dommy]
+            ))
 
 (defonce substances
   {:a "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)"
@@ -51,6 +52,7 @@
                  "Yes, in past 3 months" 6
                  "Yes, but not in past 3 months" 3}}})
 
+(def q-score (r/atom {}))
 (def visible-substance (r/atom #{}))
 (def lvl2-substances (r/atom #{}))
 
@@ -70,6 +72,7 @@
 (defn question [n]
   (let [q1?     (= n 1)
         q2?     (= n 2)
+        scorable? (and (> n 1) (< n 8))
         q-kw    (keyword (str n))
         q-map   (q-kw questions)
         q       (:question q-map)
@@ -122,11 +125,50 @@
                                                 (set-lvl2))
                                               (do
                                                 (swap! lvl2-substances conj ss-kw)
-                                                (set-lvl2)))))}]
+                                                (set-lvl2))))
+                                          (when scorable?
+                                            (swap! q-score assoc-in [q-kw ss-kw] opt-val)))}]
                   opt]]))]))]]])))
+
+(defn intervention-level [subst val]
+  (cond
+    (> val 26) "More intensive treatment"
+    (= subst :b) (cond
+                   (> val 10) "receive brief intervention"
+                   :else "no intervention")
+    (> val 3) "receive brief intervention"
+    :else "no intervention"))
+
+(defn score-table []
+  (let [scores (reduce (fn [acc [q-n q-subst-score]]
+                         (reduce (fn [acc2 [subst val]]
+                                   (let [v (if (and  (= q-n :5) (= subst :a))
+                                             0
+                                             val)]
+                                     (assoc acc2 subst (+ v (get acc subst 0)))))
+                                 acc
+                                 q-subst-score))
+                       {}
+                       @q-score)
+        ;; _ (println scores)
+        ]
+    [:section
+     [:h6 "Substance Involvement Score"]
+     [:table
+      [:tbody
+       (doall
+        (for [ss scores
+              :let [subst (first ss)
+                    scr (second ss)]]
+          ^{:key subst}
+          [:tr
+           [:td (str (subst substances))]
+           [:td (str scr)]
+           [:td [intervention-level subst scr]]]))]]]))
 
 (defn main-html []
   [:div
+   ;; [:p (str @q-score)]
    [question 1]
    (when @lvl1
      [question 2])
@@ -139,4 +181,11 @@
    (when @lvl1
      [question 6])
    (when @lvl1
-     [question 7])])
+     [question 7])
+   (when @lvl1
+     [score-table])
+   (when @lvl1
+     [:div.col
+      [:button.button-primary
+       {:on-click #(js/alert "Feature not implemented yet")}
+       "Save as PDF"]])])
