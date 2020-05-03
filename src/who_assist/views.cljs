@@ -189,10 +189,11 @@
      (.from 
       (.set (new js/html2pdf) 
             (clj->js 
-             {"margin" 1 
+             {"margin"   (array 0.5 3 0.5 0.5)
               "filename" name
-              "jsPDF" {"format" "a4"
-                       "orientation" "landscape"}})) 
+              "jsPDF"    {"format"      "a4"
+                          "unit"        "cm"
+                          "orientation" "landscape"}})) 
       body-element))
     ))
 
